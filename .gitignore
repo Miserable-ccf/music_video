@@ -1,0 +1,9 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# 生成产物（视频、预览、歌词、音频按需入库即可）
+videos/
+previews/
+lyrics/
+audio/
