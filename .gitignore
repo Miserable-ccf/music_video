@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+.runtime/
 *.py[cod]
 
 # 生成产物（视频、预览、歌词、音频按需入库即可）
@@ -7,3 +8,9 @@ videos/
 previews/
 lyrics/
 audio/
+jobs/
+
+# 本地模型凭据
+.env
+.env.*
+!.env.example

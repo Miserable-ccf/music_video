@@ -1,0 +1,5 @@
+Pillow>=9.0
+numpy>=1.21
+fonttools>=4.0
+fastapi>=0.95
+uvicorn>=0.20

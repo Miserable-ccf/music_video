@@ -1,112 +1,116 @@
-# 音乐转黑底书法字幕视频
+# 墨聲 · 本地音乐视频制作台
 
-最小实现：`ffmpeg + Pillow`，把「音频 + LRC 歌词」渲染成宽屏视频（默认 1920x1080，可用 `--width` / `--height` 改成竖屏）。
+固定使用黑色渐变背景与两层居中叠放字幕：底层为半透明灰色歌名，上层为暗红色歌词。保留原有 LRC 时序、自动均衡断句、快速淡入淡出及画幅自适应布局。CPU 与 GPU 使用同一模板。
 
-- 背景：黑色渐变
-- 底层：大号灰色泼墨 = 歌曲名（固定显示，马善政毛楷）
-- 上层：中号暗红色 = 歌词（按时间戳滚动、带淡入淡出；马善政毛楷、纯色无泼墨、自动均衡断句）
+网页支持分别选择歌名与歌词的字体、字号，搜索字库，查看字体样张、五张实际关键帧并放大预览。设置随任务保存，刷新后恢复。已移除创意对话、多方案生成、云端封面生成和模型 API 配置。
 
-## 目录结构
+## 启动
+
+需要 Python 3.10+、FFmpeg / ffprobe：
+
+```bash
+python3 -m pip install -r requirements.txt
+python3 web_app.py
+```
+
+打开 **http://127.0.0.1:8765/**。已有服务可运行 `bash restart_server.sh` 重启。
+
+1. 上传音频，填写歌名与歌手。
+2. 上传 LRC 或粘贴带时间戳的歌词，逐句试听后批准。同步歌词网络搜索为可选步骤。
+3. 在「字幕模板」分别选择两层字体和字号，点击「储存设定并更新预览」。
+4. 检查五张关键帧，生成本地 2K 封面，再渲染视频。
+5. 检查视频并确认素材发布权利后，可生成 Bilibili 投稿包。
+
+模板、排版、字体样张、封面和视频导出均在本地执行。准备好依赖与本地音频、LRC 后，断网也能完成整个制作流程；不需要模型、API Key 或在线字体服务。投稿到平台及可选歌词搜索需要网络。
+
+## 字体和字号
+
+内置 **58 个字体选项（包括不同字重及等宽变体）**，覆盖毛笔、行草、楷书、手写、篆书及少量艺术字：
+
+- 正风毛笔、莫大毛笔：各 5 个字重。
+- 霞鹜文楷繁体：3 个字重，含对应等宽版本。
+- 清松手写体 1–9：含作者提供的比例变体。
+- 芫荽、文鼎繁体楷书、cwTeX 仿古楷体。
+- 辰宇落雁等宽及 2.0、内海及何某手写体各 5 个字重。
+- 小赖手写及等宽版、悠哉手写 3 个字重、霞鹜篆书。
+- 马善政、志莽行书、刘建毛草、龙藏手书、站酷庆科黄油及快乐体。
+
+默认保留马善政字体与自动字号。两个字号字段均以 **1080p 像素**为基准，`0` 表示沿用原来的自动适配；手动值为字号上限，输出 1440p 时按 4/3 缩放，超出安全排版区域时自动缩小，确保字幕不被裁切。字色、居中位置、原有转场与断句规则不受字体设置影响。
+
+每个字库的繁体覆盖范围不同。所选字体缺少的字由内置霞鹜文楷繁体补齐，并在预览状态中列出；两者都没有的字会提示更换文字或字体。篆书原库字数较少，普通繁体歌词会有较多字使用备用字体。
+
+所有字库文件、授权、来源和 SHA-256 校验值见 [fonts/README.md](fonts/README.md) 与 [fonts/catalog.json](fonts/catalog.json)。网页提供本地授权文本链接。完整字体目录约 800 MB，移动项目时请保留整个 `fonts/`。
+
+```bash
+python3 tools/check_fonts.py
+```
+
+此命令离线核验字库文件、许可文件及 SHA-256，不会下载任何资源。收录的是本次从作者仓库核实并可随项目保存的字体，不代表穷尽互联网上所有免费字体。
+
+## 命令行直接制作
+
+```bash
+python3 make_video.py --music audio/歌曲.flac --lyrics lyrics/歌曲.lrc \
+  --title 歌名 --title-font fonts/MaShanZheng-Regular.ttf \
+  --lyric-font fonts/traditional/Iansui/Iansui-Regular.ttf \
+  --title-size 500 --lyric-size 180 --out videos/歌曲.mp4
+```
+
+省略字号或设为 `0` 可保留原有自动适配。默认 1920×1080，使用 `--width` / `--height` 调整画幅。
+
+```bash
+# 只生成一帧检查布局
+python3 make_video.py --music audio/歌曲.flac --lyrics lyrics/歌曲.lrc \
+  --title 歌名 --preview previews/歌曲.png
+```
+
+GPU 合成和 NVENC 为可选功能：
+
+```bash
+python3 -m pip install moderngl glcontext
+python3 make_video.py --music audio/歌曲.flac --lyrics lyrics/歌曲.lrc \
+  --renderer gpu --encoder h264_nvenc --out videos/歌曲.mp4
+```
+
+网页流水线会在 GPU 不可用时回退 CPU + libx264。需要无损母版时输出 MKV 并使用 `--audio-codec flac`；MP4 默认 AAC，也可用 ALAC。
+
+## 可恢复的本地流水线
+
+```bash
+python3 lyric_workflow.py approve lyrics/歌曲.lrc --audio audio/歌曲.flac
+python3 -m pipeline create --audio audio/歌曲.flac --title 歌名 --artist 歌手 \
+  --lyrics lyrics/歌曲.lrc --job-id my-song
+python3 -m pipeline template my-song --title-font-id masafont_regular \
+  --lyric-font-id iansui --title-size 500 --lyric-size 180
+python3 -m pipeline run my-song --dry-run
+python3 -m pipeline run my-song
+```
+
+`template` 自动应用唯一模板、保存参数并生成五张关键帧，无需选择方案。`run` 生成 2560×1440 FLAC 音频 MKV 母版和 AAC 音频 MP4。
+
+网页可生成使用同一字幕模板的 2K 封面；也可用 `set-cover` 导入自备的 2560×1440 封面。检查完成后：
+
+```bash
+python3 -m pipeline set-cover my-song --cover covers/封面.png
+python3 -m pipeline approve my-song --copyright-confirmed
+python3 -m pipeline package my-song
+```
+
+已有任务可以从网页歌曲列表恢复。首次保存新模板会沿用旧任务已选择的字体、断句和转场；重置按钮恢复马善政与自动字号。修改歌词或模板会取消旧输出和发布确认的登记，原输出文件仍保留，重新渲染后才可再次生成投稿包。
+
+## LRC 格式
 
 ```text
-music_video/
-├── videos/      # 输出的 mp4 视频
-├── previews/    # 预览 PNG（--preview 产物）
-├── lyrics/      # LRC 歌词（lyric_fetcher.py 默认输出目录）
-├── audio/       # 输入的音频文件
-├── fonts/       # 内置中文字体
-├── make_video.py
-├── beat_detect.py
-└── lyric_fetcher.py
+[00:00.00]第一句歌詞
+[00:05.40]第二句歌詞
+[00:09.80]第三句歌詞
 ```
 
-## 依赖
+歌词在对应时间戳切入，最后一句持续至音频结束。默认长句拆成每段最多 8 个字符，并按字数分配原句显示时长，默认切入时间 0.14 秒；已有任务保留它原有的参数。`--max-lyric-chars 0` 可禁用拆句，`--fade-sec 0` 可直接切换。重拍提亮仅在显式使用 `--beat` 时启用。
+
+## 检查
 
 ```bash
-python3 -m pip install Pillow
-# ffmpeg / ffprobe 需在 PATH
+python3 -m unittest discover -s tests -p 'test_*.py'
+node --check web/app.js
 ```
-
-## 用法
-
-### 方式一：自动拉歌词（推荐）
-
-有网时，只给音频 + 歌名即可，脚本会先从 lrclib.net 拉同步歌词，失败再回退网易云：
-
-```bash
-python3 make_video.py \
-  --music 输入.mp3 \
-  --query 孤勇者 \
-  --artist 陈奕迅 \
-  --lyric-out lyrics.lrc \
-  --out videos/输出.mp4
-```
-
-`--query` 和 `--artist` 越精确，匹配越准；音频时长会参与候选打分。
-
-### 方式二：手动指定 LRC
-
-```bash
-python3 make_video.py \
-  --music 输入.mp3 \
-  --lyrics 歌词.lrc \
-  --out videos/输出.mp4 \
-  --title 歌曲名
-```
-
-可选参数：`--title-font`、`--lyric-font`、`--ink {dry,normal,heavy}`、`--fade-sec`、`--beat`、
-`--width`、`--height`、`--crf`、`--preview`、`--lyric-source {auto,lrclib,netease}`。
-
-### 单独拉歌词 / 查看候选
-
-```bash
-python3 lyric_fetcher.py "孤勇者" --artist "陈奕迅" --out lyrics.lrc
-python3 lyric_fetcher.py "孤勇者" --artist "陈奕迅" --search
-python3 lyric_fetcher.py "孤勇者" --music 输入.mp3
-```
-
-`lyric_fetcher.py --out` 未指定时默认写入 `lyrics/lyrics.lrc`。
-
-先出一帧预览看效果：
-
-```bash
-python3 make_video.py --music 输入.mp3 --lyrics 歌词.lrc --preview previews/preview.png
-```
-
-## 歌词格式
-
-标准 LRC，一行一个时间戳（支持多行同名同时显示被忽略，取最后匹配行）：
-
-```text
-[00:00.00]歌曲名（可省略，用 --title 指定）
-[00:01.20]第一句歌词
-[00:05.40]第二句歌词
-[00:09.80]第三句歌词
-```
-
-每两个时间戳之间即该句的显示时长，最后一句持续到音频结束。
-
-## 一条命令批量生产
-
-把多首歌写成 `list.txt`（每行：音频路径<TAB>歌名<TAB>歌手）：
-
-```bash
-while IFS=$'\t' read -r music q artist; do
-  [ -z "$music" ] && continue
-  python3 make_video.py --music "$music" --query "$q" --artist "$artist" \
-    --out "videos/$(basename "$music" | sed 's/\.[^.]*$//').mp4"
-done < list.txt
-```
-
-## 数据源说明
-
-- **lrclib.net**：开放接口，优先使用，返回带时间戳的同步歌词时直接可用
-- **网易云 music.163.com**：回退源，`search` + `/api/song/lyric`，无需登录，可能受版权/风控影响
-- 两个源都失败时会明确提示「无网络/DNS 被限制/接口不可达」，不会误报成「没匹配到」
-
-## 后续可扩展成 agent 的插件点
-
-- 歌词兜底：QQ 音乐、Spotify 或 `Whisper` 本地转写
-- 生图：纯黑底可换成 AI 生成背景，`render_frame` 里换 `BG` 即可
-- 音频：加 BGM 混音、歌词高亮卡拉OK效果
-- 调度：把 `lyric_fetcher.fetch_lyrics` / `make_video.main` 包成工具函数，接到任意 agent 循环里

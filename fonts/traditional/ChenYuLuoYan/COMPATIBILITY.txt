@@ -1,0 +1,3 @@
+MoShengHandwriting2 is derived from ChenYuluoyan-2.0-Thin.ttf under SIL OFL 1.1.
+Original copyright: Wang, Li-Yu & Liu, Wei-Chen (2022).
+Modified 2026-10-26 for music_video: remove invalid TrueType hinting (FreeType reports too many function definitions); rename the font to MoShengHandwriting2 to respect the Reserved Font Name. Glyph outlines unchanged. The original font and license.txt are included.

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>墨聲 · 音樂影像製作台</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/preview.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="brand"><span class="seal">墨</span><div><strong>墨聲</strong><small>音樂影像製作台</small></div></div>
+    <div id="modelState" class="model-state ready">本地模板 · 離線可用</div>
+  </header>
+
+  <main>
+    <aside class="rail" aria-label="製作進度">
+      <button class="step active" data-target="ingest"><b>一</b><span>選擇歌曲</span></button>
+      <button class="step" data-target="direct"><b>二</b><span>校對歌詞</span></button>
+      <button class="step" data-target="preview"><b>三</b><span>字幕模板</span></button>
+      <button class="step" data-target="finish"><b>四</b><span>渲染發佈</span></button>
+    </aside>
+
+    <section class="workspace">
+      <section class="panel active" id="ingest">
+        <p class="eyebrow">SOURCE / 音源</p>
+        <h1>讓一首歌，<br><em>長出自己的畫面。</em></h1>
+        <div class="upload-zone" id="audioDrop">
+          <input id="audioFile" type="file" accept="audio/*">
+          <span class="groove"></span>
+          <strong id="audioName">選擇或拖入歌曲文件</strong>
+          <small>FLAC、WAV、MP3、M4A</small>
+        </div>
+        <div class="fields two">
+          <label>歌名<input id="title" placeholder="但"></label>
+          <label>歌手<input id="artist" placeholder="草東沒有派對"></label>
+        </div>
+        <button class="primary" id="createJob">建立製作任務</button>
+      </section>
+
+      <section class="panel" id="direct">
+        <p class="eyebrow">LYRICS / 歌詞時間軸</p>
+        <h2>讓每一句，落在對的時刻。</h2>
+        <p class="note">離線時可直接上傳 LRC 或貼上帶時間戳的歌詞，再逐句試聽確認。網絡搜索為可選步驟。</p>
+        <div class="lyrics-editor">
+          <div class="lyrics-head"><strong>歌詞準備</strong><span id="lyricStatus">等待上傳音頻</span></div>
+          <audio id="audioPlayer" controls preload="metadata"></audio>
+          <textarea id="lyricEditor" rows="12" spellcheck="false" placeholder="[00:00.00]第一句歌詞&#10;[00:04.00]第二句歌詞"></textarea>
+          <div class="editor-actions">
+            <button class="quiet" id="retryLyrics">搜索同步歌詞</button>
+            <label class="confirm"><input id="editedConfirmed" type="checkbox"> 我已逐句試聽並修正文字與時間軸</label>
+            <button class="primary" id="approveEdited">批准這版歌詞</button>
+          </div>
+        </div>
+        <div class="lyric-row">
+          <label class="file-button">也可以上傳自己的 LRC<input id="lyricFile" type="file" accept=".lrc,text/plain"></label>
+          <label class="confirm"><input id="lyricConfirmed" type="checkbox"> 我已逐句試聽並確認歌詞與時間軸</label>
+          <button class="quiet" id="uploadLyrics">確認歌詞</button>
+        </div>
+        <button class="primary" id="openTemplate">設定字幕模板 →</button>
+      </section>
+
+      <section class="panel" id="preview">
+        <p class="eyebrow">TEMPLATE / 黑色漸變 · 雙層書法</p>
+        <h2>一層留住歌名，一層唱出歌詞。</h2>
+        <label class="font-choice">繼續製作歌曲
+          <select id="savedDesignJobs"><option value="">正在讀取歌曲…</option></select>
+        </label>
+        <p id="previewLoadStatus" role="status"></p>
+        <p class="note">沿用現有居中疊放、時間軸、斷句與轉場。固定黑色漸變背景，底層灰色歌名，上層暗紅歌詞。</p>
+        <div class="template-editor">
+          <div class="template-stage">
+            <figure class="template-main"><img id="templateFrame" alt="統一模板實際渲染預覽" hidden><div id="templatePlaceholder"><span>歌名</span><strong>於是我們繼續</strong></div></figure>
+            <div id="templateFrames" class="template-frames"></div>
+            <p id="templateStatus" role="status">選擇字體與字號後，儲存並生成五張實際關鍵幀。</p>
+          </div>
+          <div class="template-controls">
+            <label>搜尋本地字庫<input id="fontSearch" type="search" placeholder="毛筆、楷書、清松、正風…"></label>
+            <p class="note" id="fontCount">正在讀取離線字庫…</p>
+            <fieldset><legend><i class="layer-dot gray"></i> 底層 · 灰色歌名</legend>
+              <label class="font-choice">字體<select id="titleFont" aria-label="底層歌名字體"></select></label>
+              <img class="font-sample" id="titleFontSample" alt="歌名字體樣張" hidden>
+              <label>字號上限（1080p 像素）<input id="titleSize" type="number" min="0" max="1200" step="1" value="0" inputmode="numeric"></label>
+              <p class="note" id="titleFontInfo"></p>
+            </fieldset>
+            <fieldset><legend><i class="layer-dot red"></i> 上層 · 暗紅歌詞</legend>
+              <label class="font-choice">字體<select id="lyricFont" aria-label="上層歌詞字體"></select></label>
+              <img class="font-sample" id="lyricFontSample" alt="歌詞字體樣張" hidden>
+              <label>字號上限（1080p 像素）<input id="lyricSize" type="number" min="0" max="1200" step="1" value="0" inputmode="numeric"></label>
+              <p class="note" id="lyricFontInfo"></p>
+            </fieldset>
+            <p class="note">0 = 保持原有自動適配。手動字號隨輸出解析度等比縮放，過大時自動縮小以容納完整字幕。缺字由本地霞鶩文楷繁體補齊。</p>
+            <button class="quiet" id="resetTemplate">恢復預設字體與自動字號</button>
+            <button class="primary" id="saveTemplate">儲存設定並更新預覽</button>
+            <button class="quiet" id="templateContinue" disabled>前往渲染 →</button>
+          </div>
+        </div>
+        <dialog id="frameViewer">
+          <button id="closeFrame" type="button">關閉大圖 ×</button>
+          <p id="frameCaption"></p>
+          <img id="largeFrame" alt="歌詞關鍵幀">
+        </dialog>
+      </section>
+
+      <section class="panel" id="finish">
+        <p class="eyebrow">OUTPUT / 輸出</p>
+        <h2>封面、視頻與投稿資料</h2>
+        <div class="output-grid">
+          <figure class="cover-stage"><div id="coverEmpty">尚未生成封面</div><img id="coverImage" alt="生成的2K封面"></figure>
+          <div class="actions">
+            <button class="quiet" id="makeCover">生成 2K 排版封面</button>
+            <button class="primary" id="renderVideo">開始 2K 視頻渲染</button>
+            <div id="renderProgress" hidden aria-live="polite">
+              <p id="renderStage">準備渲染</p>
+              <progress id="renderBar" max="100" value="0" style="width:100%;accent-color:#a23b35"></progress>
+              <p id="renderNumbers">0%</p>
+            </div>
+            <label class="confirm"><input id="rights" type="checkbox"> 我確認擁有音樂、歌詞及素材的發佈權利</label>
+            <button class="publish" id="makePackage">準備 Bilibili 投稿包</button>
+            <a class="platform-link" href="https://member.bilibili.com/platform/upload/video/frame" target="_blank" rel="noopener">打開 Bilibili 創作中心 ↗</a>
+            <p class="note">為避免誤發，頁面會準備完整投稿包，但不會代替你點擊平台的最終發佈。</p>
+          </div>
+        </div>
+        <pre id="metadata">儲存模板後，標題、簡介和標籤會顯示在這裡。</pre>
+      </section>
+    </section>
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="/static/app.js?v=20261026-template"></script>
+</body>
+</html>

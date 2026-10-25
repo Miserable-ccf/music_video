@@ -144,14 +144,9 @@ def _pick(hits, query, artist=None, duration=None, min_score=55):
     return best
 
 
-def plain_to_lrc(plain, duration=None):
-    """把没有时间戳的纯文本歌词，按音频时长均摊生成时间戳。"""
-    lines = [ln.strip() for ln in (plain or "").splitlines() if ln.strip()]
-    if not lines:
-        return ""
-    duration = float(duration) if duration else float(len(lines) * 4)
-    step = duration / len(lines)
-    return "\n".join(fmt_time(i * step) + ln for i, ln in enumerate(lines)) + "\n"
+def has_synced_timestamps(text):
+    """歌词至少包含一条非元数据时间戳，才视为同步歌词。"""
+    return bool(re.search(r"(?m)^\s*\[\d{1,3}:\d{1,2}(?:\.\d+)?\]\s*\S", text or ""))
 
 
 def _search_all(query, artist, source):
@@ -189,7 +184,7 @@ def _search_all(query, artist, source):
 
 
 def fetch_lyrics(query, artist=None, duration=None, source="auto"):
-    """返回 (lyrics_text, meta)。歌词文本为标准 LRC 格式，可能由纯文本合成。"""
+    """返回严格同步的 LRC；纯文本歌词不会被伪造时间戳。"""
     hits = _search_all(query, artist, source)
     best = _pick(hits, query, artist, duration)
 
@@ -199,23 +194,28 @@ def fetch_lyrics(query, artist=None, duration=None, source="auto"):
             f"可换更精确的歌名/歌手名，或手动提供 LRC 文件。"
         )
 
-    meta = {
-        "title": best.get("trackName") or query,
-        "artist": best.get("artistName") or artist or "",
-        "album": best.get("albumName") or "",
-        "source": best.get("source"),
-    }
+    # 已知带时间戳的候选优先；网易候选需请求详情后才能知道是否同步，
+    # 所以逐一尝试合格候选，避免被排名更高的纯文本候选提前截断。
+    ranked = sorted(hits, key=lambda c: _score(c, query, artist, duration), reverse=True)
+    for candidate in ranked:
+        if _score(candidate, query, artist, duration) < 55:
+            continue
+        meta = {
+            "title": candidate.get("trackName") or query,
+            "artist": candidate.get("artistName") or artist or "",
+            "album": candidate.get("albumName") or "",
+            "source": candidate.get("source"),
+        }
+        if candidate.get("syncedLyrics"):
+            return candidate["syncedLyrics"], meta
+        if candidate.get("source") == "netease":
+            lyrics, _tlyric = netease_lyric(candidate["id"])
+            if has_synced_timestamps(lyrics):
+                return lyrics, meta
 
-    if best.get("source") == "netease":
-        lyrics, _tlyric = netease_lyric(best["id"])
-        return lyrics, meta
-
-    if best.get("syncedLyrics"):
-        return best["syncedLyrics"], meta
-    if best.get("plainLyrics"):
-        return plain_to_lrc(best["plainLyrics"], duration), meta
-
-    raise LyricNotFound("接口返回里没有歌词（可能是纯音乐被标记 instrumental，或版权限制）")
+    raise LyricNotFound(
+        "只找到无时间戳歌词或没有歌词；严格同步模式不会按时长均摊。"
+        "请提供同步 LRC，或在网页中粘贴带时间戳的歌词并试听校对。")
 
 
 def _print_candidates(hits, query, artist, duration):
