@@ -76,11 +76,12 @@ class FallbackFont(ImageFont.FreeTypeFont):
         return (math.floor(min(b[0] for b in boxes)), min(b[1] for b in boxes),
                 math.ceil(max(b[2] for b in boxes)), max(b[3] for b in boxes))
 
-    def getmask2(self, text, mode="", **kwargs):
+    def getmask2(self, text, mode="", *args, **kwargs):
+        # Pillow >= 10 passes direction, features, language, stroke_width, ... positionally.
         runs = self.runs(text)
         if len(runs) <= 1:
-            return (runs[0][1] if runs else self.primary).getmask2(text, mode, **kwargs)
-        stroke = kwargs.get("stroke_width", 0)
+            return (runs[0][1] if runs else self.primary).getmask2(text, mode, *args, **kwargs)
+        stroke = args[3] if len(args) > 3 else kwargs.get("stroke_width", 0)
         left, top, right, bottom = self.getbbox(text, stroke_width=stroke)
         mask = Image.new("L", (max(1, right - left), max(1, bottom - top)))
         draw = ImageDraw.Draw(mask)
