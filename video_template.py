@@ -7,8 +7,8 @@ from font_catalog import FONT_FILES
 TEMPLATE_ID = "black-gradient-v1"
 DEFAULT_SETTINGS = {"title_font_id": "ma_shan_zheng", "lyric_font_id": "ma_shan_zheng",
                     "title_size": 0, "lyric_size": 0,
-                    "title_color": "#444444", "lyric_color": "#8e1212",
-                    "bg_top": "#28282e", "bg_bottom": "#020204"}
+                    "title_color": "#3a3626", "lyric_color": "#3b3626",
+                    "bg_top": "#8b7f45", "bg_bottom": "#3d3820"}
 COLOR_KEYS = ("title_color", "lyric_color", "bg_top", "bg_bottom")
 COLOR_RE = re.compile(r"#[0-9a-fA-F]{6}")
 

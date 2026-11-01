@@ -1,6 +1,6 @@
 let jobId = null, fonts = [], templateDirty = false, templateReady = false, busyTemplate = false, taskVersion = 0;
 let lyricTimer, renderTimer;
-const defaults = {title_font_id:'ma_shan_zheng',lyric_font_id:'ma_shan_zheng',title_size:0,lyric_size:0,title_color:'#444444',lyric_color:'#8e1212',bg_top:'#28282e',bg_bottom:'#020204'};
+const defaults = {title_font_id:'ma_shan_zheng',lyric_font_id:'ma_shan_zheng',title_size:0,lyric_size:0,title_color:'#3a3626',lyric_color:'#3b3626',bg_top:'#8b7f45',bg_bottom:'#3d3820'};
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toast = (text,error=false) => { $('toast').textContent=text; $('toast').className=(error?'error ':'')+'show'; setTimeout(()=>$('toast').className='',4500); };
@@ -17,7 +17,7 @@ $('audioFile').onchange=e=>{const file=e.target.files[0];if(file){$('audioName')
 function rememberTask(){localStorage.setItem('musicVideoJob',jobId);history.replaceState(null,'','?job='+encodeURIComponent(jobId));loadExportName();}
 function setDirty(value=true){templateDirty=value;$('templateContinue').disabled=value||!templateReady||busyTemplate;$('renderVideo').disabled=value||!templateReady||busyTemplate;if(value)$('templateStatus').textContent='設定已變更，請儲存以更新關鍵幀與成片。';}
 function settings(){return {title_font_id:$('titleFont').value,lyric_font_id:$('lyricFont').value,title_size:Number($('titleSize').value),lyric_size:Number($('lyricSize').value),title_color:$('titleColor').value,lyric_color:$('lyricColor').value,bg_top:$('bgTop').value,bg_bottom:$('bgBottom').value};}
-function setSettings(value){$('fontSearch').value='';populateFonts(value.title_font_id,value.lyric_font_id);$('titleSize').value=value.title_size;$('lyricSize').value=value.lyric_size;$('titleColor').value=value.title_color;$('lyricColor').value=value.lyric_color;$('bgTop').value=value.bg_top;$('bgBottom').value=value.bg_bottom;updateFontSamples();}
+function setSettings(value){$('fontSearch').value='';populateFonts(value.title_font_id,value.lyric_font_id);$('titleSize').value=value.title_size;$('lyricSize').value=value.lyric_size;$('titleColor').value=value.title_color;$('lyricColor').value=value.lyric_color;$('bgTop').value=value.bg_top;$('bgBottom').value=value.bg_bottom;syncColorHex();updateFontSamples();}
 function populateFonts(titleId=$('titleFont').value||defaults.title_font_id,lyricId=$('lyricFont').value||defaults.lyric_font_id){
   const query=$('fontSearch').value.trim().toLowerCase();let matching=0;
   for(const [id,selected] of [['titleFont',titleId],['lyricFont',lyricId]]){
@@ -32,6 +32,13 @@ api('/api/version').then(v=>{$('buildInfo').textContent=`${v.commit}${v.dirty?'*
 $('fontSearch').oninput=()=>populateFonts();
 for(const id of ['titleFont','lyricFont'])$(id).onchange=()=>{updateFontSamples();setDirty();};
 for(const id of ['titleSize','lyricSize','titleColor','lyricColor','bgTop','bgBottom'])$(id).oninput=()=>setDirty();
+const COLOR_IDS=['titleColor','lyricColor','bgTop','bgBottom'];
+function syncColorHex(){for(const id of COLOR_IDS)$(id+'Hex').value=$(id).value;}
+for(const id of COLOR_IDS){
+  $(id).addEventListener('input',()=>{$(id+'Hex').value=$(id).value;});
+  $(id+'Hex').addEventListener('input',()=>{const v=$(id+'Hex').value.trim();if(/^#[0-9a-fA-F]{6}$/.test(v)){$(id).value=v.toLowerCase();setDirty();}});
+  $(id+'Hex').addEventListener('blur',syncColorHex);
+}
 $('resetTemplate').onclick=()=>{setSettings(defaults);setDirty();};
 $('templateContinue').onclick=()=>show('finish');
 function drawFrames(urls,frames=[]){

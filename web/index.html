@@ -81,16 +81,16 @@
               <label class="font-choice">字體<select id="titleFont" aria-label="底層歌名字體"></select></label>
               <img class="font-sample" id="titleFontSample" alt="歌名字體樣張" hidden>
               <label>字號上限（1080p 像素）<input id="titleSize" type="number" min="0" max="1200" step="1" value="0" inputmode="numeric"></label>
-              <label>顏色<input id="titleColor" type="color" value="#444444"></label>
+              <label>顏色<span class="color-pair"><input id="titleColor" type="color" value="#3a3626"><input id="titleColorHex" class="color-hex" maxlength="7" placeholder="#RRGGBB" aria-label="歌名顏色代碼"></span></label>
               <p class="note" id="titleFontInfo"></p>
             </fieldset>
             <fieldset><legend><i class="layer-dot red"></i> 上層 · 暗紅歌詞</legend>
               <label class="font-choice">字體<select id="lyricFont" aria-label="上層歌詞字體"></select></label>
               <img class="font-sample" id="lyricFontSample" alt="歌詞字體樣張" hidden>
               <label>字號上限（1080p 像素）<input id="lyricSize" type="number" min="0" max="1200" step="1" value="0" inputmode="numeric"></label>
-              <label>顏色<input id="lyricColor" type="color" value="#8e1212"></label>
-              <label>背景頂部顏色<input id="bgTop" type="color" value="#28282e"></label>
-              <label>背景底部顏色<input id="bgBottom" type="color" value="#020204"></label>
+              <label>顏色<span class="color-pair"><input id="lyricColor" type="color" value="#3b3626"><input id="lyricColorHex" class="color-hex" maxlength="7" placeholder="#RRGGBB" aria-label="歌詞顏色代碼"></span></label>
+              <label>背景頂部顏色<span class="color-pair"><input id="bgTop" type="color" value="#8b7f45"><input id="bgTopHex" class="color-hex" maxlength="7" placeholder="#RRGGBB" aria-label="背景頂部顏色代碼"></span></label>
+              <label>背景底部顏色<span class="color-pair"><input id="bgBottom" type="color" value="#3d3820"><input id="bgBottomHex" class="color-hex" maxlength="7" placeholder="#RRGGBB" aria-label="背景底部顏色代碼"></span></label>
               <p class="note" id="lyricFontInfo"></p>
             </fieldset>
             <p class="note">0 = 保持原有自動適配。手動字號隨輸出解析度等比縮放，過大時自動縮小以容納完整字幕。缺字由本地霞鶩文楷繁體補齊。</p>
@@ -138,7 +138,7 @@
     </section>
   </main>
   <div id="toast" role="status" aria-live="polite"></div>
-  <script src="/static/app.js?v=20261029-audio-meta"></script>
+  <script src="/static/app.js?v=20261101-wanqing-defaults"></script>
   <div id="buildInfo" style="position:fixed;right:8px;bottom:6px;font:12px/1.4 monospace;color:#8a8a8a;opacity:.85;pointer-events:none;z-index:9999"></div>
 </body>
 </html>
