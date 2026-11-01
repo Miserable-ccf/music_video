@@ -58,6 +58,37 @@ def read_id3_text_frames(data):
     return frames
 
 
+def read_flac_tags(data):
+    """读取 FLAC 的 Vorbis 注释，返回 {'TITLE': ..., 'ARTIST': ...}（键为大写）。"""
+    tags = {}
+    if data[:4] != b"fLaC":
+        return tags
+    pos = 4
+    while pos + 4 <= len(data):
+        header = data[pos]
+        last = header & 0x80
+        block_type = header & 0x7F
+        length = int.from_bytes(data[pos + 1:pos + 4], "big")
+        block = data[pos + 4:pos + 4 + length]
+        pos += 4 + length
+        if block_type == 4 and len(block) >= 4:
+            vendor_len = int.from_bytes(block[0:4], "little")
+            cursor = 4 + vendor_len
+            count = int.from_bytes(block[cursor:cursor + 4], "little")
+            cursor += 4
+            for _ in range(count):
+                size = int.from_bytes(block[cursor:cursor + 4], "little")
+                entry = block[cursor + 4:cursor + 4 + size].decode("utf-8", errors="replace")
+                cursor += 4 + size
+                if "=" in entry:
+                    key, value = entry.split("=", 1)
+                    tags.setdefault(key.upper(), value.strip())
+            break
+        if last:
+            break
+    return tags
+
+
 def title_artist_from_filename(filename):
     """从文件名推断，例如 "08 - 歌名.mp3" 或 "歌手 - 歌名.mp3"。"""
     stem = re.sub(r"\.[A-Za-z0-9]+$", "", filename.rsplit("/", 1)[-1]).strip()
@@ -73,6 +104,10 @@ def detect_title_artist(data, filename):
     frames = read_id3_text_frames(data)
     title = frames.get("TIT2", "").strip()
     artist = frames.get("TPE1", "").strip()
+    if not title or not artist:
+        flac = read_flac_tags(data)
+        title = title or flac.get("TITLE", "")
+        artist = artist or flac.get("ARTIST", "")
     if not title or not artist:
         file_title, file_artist = title_artist_from_filename(filename)
         title = title or file_title
