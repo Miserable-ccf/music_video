@@ -1,6 +1,6 @@
 let jobId = null, fonts = [], templateDirty = false, templateReady = false, busyTemplate = false, taskVersion = 0;
 let lyricTimer, renderTimer;
-const defaults = {title_font_id:'ma_shan_zheng',lyric_font_id:'ma_shan_zheng',title_size:0,lyric_size:0};
+const defaults = {title_font_id:'ma_shan_zheng',lyric_font_id:'ma_shan_zheng',title_size:0,lyric_size:0,title_color:'#444444',lyric_color:'#8e1212'};
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toast = (text,error=false) => { $('toast').textContent=text; $('toast').className=(error?'error ':'')+'show'; setTimeout(()=>$('toast').className='',4500); };
@@ -9,11 +9,15 @@ async function api(url,options={}) { const r=await fetch(url,options),d=await r.
 const jsonOptions = (method,data) => ({method,headers:{'content-type':'application/json'},body:JSON.stringify(data)});
 document.querySelectorAll('.step').forEach(b=>b.onclick=()=>show(b.dataset.target));
 $('openTemplate').onclick=()=>show('preview');
-$('audioFile').onchange=e=>{if(e.target.files[0])$('audioName').textContent=e.target.files[0].name;};
-function rememberTask(){localStorage.setItem('musicVideoJob',jobId);history.replaceState(null,'','?job='+encodeURIComponent(jobId));}
+async function detectAudioMeta(file){
+  try{const r=await fetch(`/api/audio-meta?filename=${encodeURIComponent(file.name)}`,{method:'POST',body:file}),d=await r.json();if(!d.ok)throw Error(d.error||'解析失败');if(d.title)$('title').value=d.title;if(d.artist)$('artist').value=d.artist;}
+  catch(e){toast(`未能自动解析歌名歌手：${e.message}`,true);}
+}
+$('audioFile').onchange=e=>{const file=e.target.files[0];if(file){$('audioName').textContent=file.name;detectAudioMeta(file);}};
+function rememberTask(){localStorage.setItem('musicVideoJob',jobId);history.replaceState(null,'','?job='+encodeURIComponent(jobId));loadExportName();}
 function setDirty(value=true){templateDirty=value;$('templateContinue').disabled=value||!templateReady||busyTemplate;$('renderVideo').disabled=value||!templateReady||busyTemplate;if(value)$('templateStatus').textContent='設定已變更，請儲存以更新關鍵幀與成片。';}
-function settings(){return {title_font_id:$('titleFont').value,lyric_font_id:$('lyricFont').value,title_size:Number($('titleSize').value),lyric_size:Number($('lyricSize').value)};}
-function setSettings(value){$('fontSearch').value='';populateFonts(value.title_font_id,value.lyric_font_id);$('titleSize').value=value.title_size;$('lyricSize').value=value.lyric_size;updateFontSamples();}
+function settings(){return {title_font_id:$('titleFont').value,lyric_font_id:$('lyricFont').value,title_size:Number($('titleSize').value),lyric_size:Number($('lyricSize').value),title_color:$('titleColor').value,lyric_color:$('lyricColor').value};}
+function setSettings(value){$('fontSearch').value='';populateFonts(value.title_font_id,value.lyric_font_id);$('titleSize').value=value.title_size;$('lyricSize').value=value.lyric_size;$('titleColor').value=value.title_color;$('lyricColor').value=value.lyric_color;updateFontSamples();}
 function populateFonts(titleId=$('titleFont').value||defaults.title_font_id,lyricId=$('lyricFont').value||defaults.lyric_font_id){
   const query=$('fontSearch').value.trim().toLowerCase();let matching=0;
   for(const [id,selected] of [['titleFont',titleId],['lyricFont',lyricId]]){
@@ -26,7 +30,7 @@ function populateFonts(titleId=$('titleFont').value||defaults.title_font_id,lyri
 function updateFontSamples(){for(const layer of ['title','lyric']){const font=fonts.find(f=>f.id===$(layer+'Font').value);if(!font)continue;const img=$(layer+'FontSample');img.src=`/api/fonts/${encodeURIComponent(font.id)}/sample?text=${encodeURIComponent(layer==='title'?($('title').value||'歌名書法').slice(0,80):'於是我們繼續，風起雲湧')}`;img.hidden=false;$(layer+'FontInfo').innerHTML=`${esc(font.category)} · <a href="/api/fonts/${encodeURIComponent(font.id)}/license" target="_blank" rel="noopener">${esc(font.license)}</a> · <a href="${esc(font.source)}" target="_blank" rel="noopener">作者來源 ↗</a>`;}}
 $('fontSearch').oninput=()=>populateFonts();
 for(const id of ['titleFont','lyricFont'])$(id).onchange=()=>{updateFontSamples();setDirty();};
-for(const id of ['titleSize','lyricSize'])$(id).oninput=()=>setDirty();
+for(const id of ['titleSize','lyricSize','titleColor','lyricColor'])$(id).oninput=()=>setDirty();
 $('resetTemplate').onclick=()=>{setSettings(defaults);setDirty();};
 $('templateContinue').onclick=()=>show('finish');
 function drawFrames(urls,frames=[]){
@@ -107,4 +111,15 @@ $('renderVideo').onclick = async () => {
     toast(error.message, true);
   }
 };
+async function loadExportName(){
+  if(!jobId)return;
+  try{const d=await api(`/api/jobs/${encodeURIComponent(jobId)}/export-name`);$('exportClimax').value=d.climax;$('exportClimax').dataset.auto=d.auto_climax;$('exportNamePreview').textContent=`文件名：${d.name}.mp4`;}
+  catch(e){toast(e.message,true);}
+}
+async function saveExportName(climax){
+  try{const d=await api(`/api/jobs/${encodeURIComponent(jobId)}/export-name`,jsonOptions('PUT',{climax}));$('exportClimax').value=d.climax;$('exportNamePreview').textContent=`文件名：${d.name}.mp4`;toast('導出文件名已保存');}
+  catch(e){toast(e.message,true);}
+}
+$('saveExportClimax').onclick=()=>{if(!jobId)return toast('请先完成任务',true);saveExportName($('exportClimax').value.trim());};
+$('resetExportClimax').onclick=()=>{if(!jobId)return toast('请先完成任务',true);saveExportName('');};
 $('makePackage').onclick=async()=>{if(!jobId)return toast('请先完成任务',true);const r=await fetch(`/api/jobs/${jobId}/package`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({copyright_confirmed:$('rights').checked})}),d=await r.json();toast(d.ok?`投稿包：${d.path}`:d.error,!d.ok);};

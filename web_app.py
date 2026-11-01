@@ -20,6 +20,7 @@ from lyric_workflow import audio_duration, replace_status, validate_lrc
 import lyric_fetcher
 from pipeline import workflow
 from pipeline.design import FONT_FILES, extract_lyric_samples, render_keyframes, render_preview
+from audio_meta import detect_title_artist
 from font_catalog import available_fonts, glyph_report, load_font, FONT_ROOT, CATALOG
 from video_template import DEFAULT_SETTINGS, TEMPLATE_ID, normalize_settings, settings_from_design, unified_design
 
@@ -344,6 +345,39 @@ def render(job_id: str):
                             encoding="utf-8")
             threading.Thread(target=_render, args=(job_id,), daemon=True).start()
         return {"ok": True, "message": "已开始后台渲染"}
+    except (Exception, SystemExit) as exc:
+        return error_response(exc)
+
+
+@app.get("/api/jobs/{job_id}/export-name")
+def get_export_name(job_id: str):
+    data = safe_job(job_id)
+    try:
+        auto = workflow.auto_export_climax(data)
+        return {"ok": True, "auto_climax": auto, "climax": data.get("export_climax") or auto,
+                "name": workflow.export_name_for(data)}
+    except (Exception, SystemExit) as exc:
+        return error_response(exc)
+
+
+@app.put("/api/jobs/{job_id}/export-name")
+async def set_export_name(job_id: str, request: Request):
+    try:
+        body = await request.json()
+        workflow.command_set_export_climax(argparse.Namespace(job_id=job_id, text=body.get("climax", "")))
+        data = workflow.load(job_id)
+        return {"ok": True, "climax": workflow.export_climax(data), "name": workflow.export_name_for(data)}
+    except (Exception, SystemExit) as exc:
+        return error_response(exc)
+
+
+@app.post("/api/audio-meta")
+async def audio_meta(request: Request, filename: str = Query("", max_length=300)):
+    try:
+        data = await request.body()
+        if not data:
+            raise ValueError("音频为空")
+        return {"ok": True, **detect_title_artist(data, filename)}
     except (Exception, SystemExit) as exc:
         return error_response(exc)
 

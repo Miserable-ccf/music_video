@@ -99,6 +99,33 @@ def _ensure_parent(path):
         p.parent.mkdir(parents=True, exist_ok=True)
 
 
+def climax_segment(segments, music_path):
+    """按每句时间窗内的音频 RMS 选出最响的一句，视为歌词中的最高潮句。"""
+    from beat_detect import load_mono
+    audio, sr = load_mono(music_path)
+    best_text, best_score = "", -1.0
+    for seg in segments:
+        text = (seg.get("text") or "").strip()
+        end = seg.get("end")
+        if not text or end is None or end - seg["start"] < 1.5:
+            continue
+        a, b = int(seg["start"] * sr), min(len(audio), int(end * sr))
+        if b <= a:
+            continue
+        score = float(np.sqrt(np.mean(audio[a:b] ** 2)))
+        if score > best_score:
+            best_text, best_score = text, score
+    return best_text
+
+
+def export_name(climax, title, artist):
+    """导出文件名：最高潮句-歌名-歌手，去掉文件系统不允许的字符。"""
+    name = "-".join(part for part in (climax, title, artist) if part)
+    name = re.sub(r'[\\/:*?"<>|\r\n\t]+', " ", name)
+    name = re.sub(r"\s+", " ", name).strip()
+    return name[:120] or "video"
+
+
 def parse_lyrics(text):
     """返回 (title, segments)。segments = [{'start','end','text'}, ...]"""
     line_re = re.compile(r"^\s*\[(\d{1,2}):(\d{1,2}(?:\.\d+)?)\]\s*(.*)$")
@@ -198,14 +225,36 @@ def shorten_lyric_segments(segments, max_chars):
     return result
 
 
+def _smooth_field(rng, scale, sigma):
+    """低频随机场，归一化为均值 0、标准差 1，用于背景的云雾明暗。"""
+    small = Image.fromarray((rng.random((HEIGHT // scale + 2, WIDTH // scale + 2)) * 255).astype(np.uint8))
+    big = small.resize((WIDTH, HEIGHT), Image.BICUBIC).filter(ImageFilter.GaussianBlur(sigma))
+    a = np.asarray(big, dtype=np.float32) / 255.0
+    return (a - a.mean()) / (a.std() + 1e-6)
+
+
 def make_bg():
-    """生成垂直线性渐变背景，顶部略亮、底部近黑。"""
+    """垂直渐变底色 + 云雾式明暗 + 四角暗角 + 淡墨横晕；固定随机种子，CPU/GPU 底图一致。"""
     grad = Image.new("RGB", (1, HEIGHT))
     px = grad.load()
     for y in range(HEIGHT):
         t = y / max(1, HEIGHT - 1)
         px[0, y] = tuple(int(a + (b - a) * t) for a, b in zip(BG_TOP, BG_BOTTOM))
-    return grad.resize((WIDTH, HEIGHT))
+    base = np.asarray(grad.resize((WIDTH, HEIGHT)), dtype=np.float32)
+
+    rng = np.random.default_rng(21)
+    mottle = _smooth_field(rng, 120, 45) * 3.0    # 大块云雾明暗
+    drift = _smooth_field(rng, 260, 80) * 2.0     # 更柔和的整体漂移
+    yy, xx = np.mgrid[0:HEIGHT, 0:WIDTH].astype(np.float32)
+    d = np.sqrt(((xx - WIDTH / 2) / (WIDTH / 2)) ** 2 + ((yy - HEIGHT / 2) / (HEIGHT / 2)) ** 2)
+    vignette = 1.0 - 0.18 * np.clip(d - 0.45, 0, None)
+    # 三条很淡的横向墨晕，位置按 1080p 高度比例换算到当前分辨率
+    wash = np.zeros((HEIGHT, WIDTH), np.float32)
+    for ratio, amp, thick in [(150 / 720, 3, 70 / 720), (420 / 720, -4, 90 / 720), (600 / 720, 3, 60 / 720)]:
+        wash += amp * np.exp(-((yy - ratio * HEIGHT) / (thick * HEIGHT)) ** 2)
+
+    out = base * vignette[..., None] + (mottle + drift + wash)[..., None]
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
 
 
 def make_scene():
@@ -397,10 +446,14 @@ def compute_layout(title, segments, title_font_path, lyric_font_path,
     return best_tf, best_lf, best_size, lyric_size, title_max_w, lyric_max_w
 
 
+def hex_to_rgb(value):
+    return tuple(int(value[i:i + 2], 16) for i in (1, 3, 5))
+
+
 def worker_init(title, segments, title_font_path, lyric_font_path,
                 title_size, lyric_size, title_max_w, lyric_max_w,
                 title_ink=None, lyric_ink=None, beats=None,
-                beat_win=BEAT_WIN_SEC):
+                beat_win=BEAT_WIN_SEC, title_color=None, lyric_color=None):
     global _G_TITLE, _G_SEGMENTS, _G_TITLE_FONT, _G_LYRIC_FONT
     global _G_TITLE_MAX_W, _G_LYRIC_MAX_W, _G_BG
     global _G_TITLE_LAYER, _G_LYRIC_LAYERS, _G_TITLE_INK, _G_LYRIC_INK
@@ -424,19 +477,24 @@ def worker_init(title, segments, title_font_path, lyric_font_path,
             _G_BEATS.append((float(b), "down"))
     _G_BEAT_WIN = beat_win
 
+    # 未指定颜色时沿用模板默认值；指定歌词颜色后，重拍色随之提亮，保持同一色系
+    title_rgb = hex_to_rgb(title_color) if title_color else TITLE_COLOR[:3]
+    lyric_rgb = hex_to_rgb(lyric_color) if lyric_color else LYRICS_COLOR[:3]
+    beat_rgb = (tuple(min(255, max(int(c * 1.6), 40)) for c in lyric_rgb)
+                if lyric_color else BEAT_COLOR[:3])
     title_lines = wrap_by_pixels(_PROBE, _G_TITLE, _G_TITLE_FONT, _G_TITLE_MAX_W)
     _G_TITLE_LAYER = _build_clean_layer(
-        title_lines, _G_TITLE_FONT, TITLE_COLOR[:3], TITLE_COLOR[3] / 255.0)
+        title_lines, _G_TITLE_FONT, title_rgb, TITLE_COLOR[3] / 255.0)
 
     _G_LYRIC_LAYERS = []
     _G_BEAT_LAYERS = []
     for i, seg in enumerate(_G_SEGMENTS):
         lines = wrap_balanced(_PROBE, seg["text"], _G_LYRIC_FONT, _G_LYRIC_MAX_W)
         _G_LYRIC_LAYERS.append(_build_clean_layer(
-            lines, _G_LYRIC_FONT, LYRICS_COLOR[:3], LYRICS_COLOR[3] / 255.0))
+            lines, _G_LYRIC_FONT, lyric_rgb, LYRICS_COLOR[3] / 255.0))
         # 重拍强调层：更亮更浓，叠加时更显气势
         _G_BEAT_LAYERS.append(_build_clean_layer(
-            lines, _G_LYRIC_FONT, BEAT_COLOR[:3], BEAT_COLOR[3] / 255.0))
+            lines, _G_LYRIC_FONT, beat_rgb, BEAT_COLOR[3] / 255.0))
 
 
 def _build_clean_layer(lines, font, rgb, opacity):
@@ -585,6 +643,8 @@ def main():
     ap.add_argument("--lyric-font", default=DEFAULT_FONTS[1])
     ap.add_argument("--title-size", type=int, default=0, help="歌名字号上限（1080p 基准）；0 为原有自动适配")
     ap.add_argument("--lyric-size", type=int, default=0, help="歌词字号上限（1080p 基准）；0 为原有自动适配")
+    ap.add_argument("--title-color", help="歌名颜色，#RRGGBB；缺省为模板灰色")
+    ap.add_argument("--lyric-color", help="歌词颜色，#RRGGBB；缺省为模板暗红")
     ap.add_argument("--ink", choices=["dry", "normal", "heavy"], default="normal",
                     help="泼墨强度：dry 更枯/多点，heavy 更润/更晕")
     ap.add_argument("--fade-sec", type=float, default=FADE_SEC,
@@ -681,7 +741,8 @@ def main():
     FADE_SEC = args.fade_sec
     init = (title, segments, args.title_font, args.lyric_font,
             title_size, lyric_size, title_max_w, lyric_max_w,
-            title_ink, lyric_ink, beats, args.beat_win)
+            title_ink, lyric_ink, beats, args.beat_win,
+            args.title_color, args.lyric_color)
 
     gpu = None
     if args.renderer == "gpu":

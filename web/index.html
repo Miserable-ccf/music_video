@@ -81,12 +81,14 @@
               <label class="font-choice">字體<select id="titleFont" aria-label="底層歌名字體"></select></label>
               <img class="font-sample" id="titleFontSample" alt="歌名字體樣張" hidden>
               <label>字號上限（1080p 像素）<input id="titleSize" type="number" min="0" max="1200" step="1" value="0" inputmode="numeric"></label>
+              <label>顏色<input id="titleColor" type="color" value="#444444"></label>
               <p class="note" id="titleFontInfo"></p>
             </fieldset>
             <fieldset><legend><i class="layer-dot red"></i> 上層 · 暗紅歌詞</legend>
               <label class="font-choice">字體<select id="lyricFont" aria-label="上層歌詞字體"></select></label>
               <img class="font-sample" id="lyricFontSample" alt="歌詞字體樣張" hidden>
               <label>字號上限（1080p 像素）<input id="lyricSize" type="number" min="0" max="1200" step="1" value="0" inputmode="numeric"></label>
+              <label>顏色<input id="lyricColor" type="color" value="#8e1212"></label>
               <p class="note" id="lyricFontInfo"></p>
             </fieldset>
             <p class="note">0 = 保持原有自動適配。手動字號隨輸出解析度等比縮放，過大時自動縮小以容納完整字幕。缺字由本地霞鶩文楷繁體補齊。</p>
@@ -114,6 +116,14 @@
               <p id="renderStage">準備渲染</p>
               <progress id="renderBar" max="100" value="0" style="width:100%;accent-color:#a23b35"></progress>
               <p id="renderNumbers">0%</p>
+            </div>
+            <div class="export-name">
+              <label>導出文件名句（默認為最高潮句，可修改）<input id="exportClimax" maxlength="80" autocomplete="off"></label>
+              <p class="note" id="exportNamePreview"></p>
+              <div class="actions">
+                <button class="quiet" id="saveExportClimax">保存導出句</button>
+                <button class="quiet" id="resetExportClimax">恢復自動選句</button>
+              </div>
             </div>
             <label class="confirm"><input id="rights" type="checkbox"> 我確認擁有音樂、歌詞及素材的發佈權利</label>
             <button class="publish" id="makePackage">準備 Bilibili 投稿包</button>

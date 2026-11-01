@@ -128,7 +128,8 @@ def command_template(args):
     if not data.get("lyrics_approved"):
         raise SystemExit("停止：歌词尚未人工审核")
     previous = data.get("selected_design")
-    updates = {key: getattr(args, key) for key in ("title_font_id", "lyric_font_id", "title_size", "lyric_size")
+    updates = {key: getattr(args, key) for key in ("title_font_id", "lyric_font_id", "title_size", "lyric_size",
+                                                   "title_color", "lyric_color")
                if getattr(args, key, None) is not None}
     option = unified_design(data["title"], data["artist"], updates, previous)
     directory = job_path(args.job_id)
@@ -188,6 +189,7 @@ def render_command(data, output, audio_codec):
             "--lyric-font", str(FONT_FILES[settings["lyric_font_id"]]),
             "--title-size", str(settings["title_size"]),
             "--lyric-size", str(settings["lyric_size"]),
+            "--title-color", settings["title_color"], "--lyric-color", settings["lyric_color"],
             "--ink", design["ink"], "--fade-sec",
             "0" if design["transition"] == "cut" else str(design["fade_seconds"]),
             "--max-lyric-chars", str(design["max_lyric_chars"]),
@@ -304,6 +306,33 @@ def command_set_cover(args):
     save(data)
     print(target)
 
+def auto_export_climax(data):
+    """默认取音量最高的一句歌词，作为导出文件名的第一段。"""
+    import make_video as renderer
+    _, segments = renderer.parse_lyrics(Path(data["lyrics"]).read_text(encoding="utf-8-sig"))
+    return renderer.climax_segment(segments, data["audio"])
+
+
+def export_climax(data):
+    """人工修改过的句子优先；否则使用自动选出的最高潮句。"""
+    return data.get("export_climax") or auto_export_climax(data)
+
+
+def export_name_for(data):
+    import make_video as renderer
+    return renderer.export_name(export_climax(data), data["title"], data["artist"])
+
+
+def command_set_export_climax(args):
+    data = load(args.job_id)
+    text = (args.text or "").strip()
+    if len(text) > 80 or "\n" in text or "\r" in text:
+        raise SystemExit("导出用句需为单行，且不超过 80 字")
+    data["export_climax"] = text
+    save(data)
+    print(export_name_for(data))
+
+
 def command_package(args):
     data = load(args.job_id)
     if data["status"] != "APPROVED":
@@ -311,7 +340,10 @@ def command_package(args):
     directory = job_path(args.job_id)
     package = directory / "publish-package"
     package.mkdir(exist_ok=True)
-    shutil.copy2(data["outputs"]["publish"], package / "video.mp4")
+    name = export_name_for(data)
+    (package / "video.mp4").unlink(missing_ok=True)
+    shutil.copy2(data["outputs"]["publish"], package / f"{name}.mp4")
+    data["export_name"] = name
     shutil.copy2(directory / "metadata.json", package / "metadata.json")
     cover = Path(data["outputs"]["cover"])
     shutil.copy2(cover, package / "cover.png")
@@ -341,6 +373,8 @@ def main():
     design.add_argument("--lyric-font-id", choices=sorted(FONT_FILES))
     design.add_argument("--title-size", type=int)
     design.add_argument("--lyric-size", type=int)
+    design.add_argument("--title-color")
+    design.add_argument("--lyric-color")
     design.set_defaults(func=command_template)
     select = sub.add_parser("select-design")
     select.add_argument("job_id"); select.add_argument("option", choices=["a", "b", "c"])

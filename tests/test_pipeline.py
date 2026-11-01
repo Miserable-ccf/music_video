@@ -53,8 +53,11 @@ class PipelineSmokeTest(unittest.TestCase):
             bg, scene, mist = renderer.make_scene()
             self.assertEqual(scene,[])
             self.assertIsNone(mist.getbbox())
-            for y in [0,100,359]:
-                self.assertEqual(bg.getpixel((0,y)),bg.getpixel((639,y)))
+            # 背景带云雾、暗角和淡墨晕，不再左右对称；只校验尺寸与整体为上亮下暗
+            self.assertEqual(bg.size,(640,360))
+            top = sum(bg.crop((0,0,640,60)).convert('L').getdata()) / (640*60)
+            bottom = sum(bg.crop((0,300,640,360)).convert('L').getdata()) / (640*60)
+            self.assertGreater(top,bottom)
             font = str(FONT_FILES['iansui'])
             layout = renderer.compute_layout('測試',[{'text':'繁體歌詞'}],font,font,300,150)
             self.assertLessEqual(layout[2],100)

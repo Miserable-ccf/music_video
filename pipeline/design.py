@@ -44,7 +44,8 @@ def render_keyframes(option, directory, title, lyrics_path, duration, width=1280
         renderer.FADE_SEC = 0 if option["transition"] == "cut" else option["fade_seconds"]
         _, _, ts, ls, tw, lw = renderer.compute_layout(
             title, segments, title_font, font, settings["title_size"], settings["lyric_size"])
-        renderer.worker_init(title, chosen, title_font, font, ts, ls, tw, lw)
+        renderer.worker_init(title, chosen, title_font, font, ts, ls, tw, lw,
+                             title_color=settings["title_color"], lyric_color=settings["lyric_color"])
         result = []
         for index, segment in enumerate(chosen):
             moment = (segment["start"] + segment["end"]) / 2
@@ -78,7 +79,8 @@ def render_effect_preview(option, destination, title, lyric, index, width=960, h
         renderer.FADE_SEC = 0 if option["transition"] == "cut" else option["fade_seconds"]
         _, _, ts, ls, tw, lw = renderer.compute_layout(
             title, segments, title_font, font, settings["title_size"], settings["lyric_size"])
-        renderer.worker_init(title, segments, title_font, font, ts, ls, tw, lw)
+        renderer.worker_init(title, segments, title_font, font, ts, ls, tw, lw,
+                             title_color=settings["title_color"], lyric_color=settings["lyric_color"])
         destination.parent.mkdir(parents=True, exist_ok=True)
         pixels = renderer.render_frame(round(segments[0]["end"] / 2 * renderer.FPS))
         Image.frombytes("RGB", (width, height), pixels).save(destination)
