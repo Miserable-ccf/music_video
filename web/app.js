@@ -114,7 +114,7 @@ $('renderVideo').onclick = async () => {
 async function loadExportName(){
   if(!jobId)return;
   try{const d=await api(`/api/jobs/${encodeURIComponent(jobId)}/export-name`);$('exportClimax').value=d.climax;$('exportClimax').dataset.auto=d.auto_climax;$('exportNamePreview').textContent=`文件名：${d.name}.mp4`;}
-  catch(e){toast(e.message,true);}
+  catch(e){console.warn('导出句加载失败',e.message);}
 }
 async function saveExportName(climax){
   try{const d=await api(`/api/jobs/${encodeURIComponent(jobId)}/export-name`,jsonOptions('PUT',{climax}));$('exportClimax').value=d.climax;$('exportNamePreview').textContent=`文件名：${d.name}.mp4`;toast('導出文件名已保存');}

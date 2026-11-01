@@ -308,6 +308,8 @@ def command_set_cover(args):
 
 def auto_export_climax(data):
     """默认取音量最高的一句歌词，作为导出文件名的第一段。"""
+    if not data.get("lyrics") or not data.get("audio"):
+        return ""  # 歌词尚未审核时没有可选句，文件名只用歌名和歌手
     import make_video as renderer
     _, segments = renderer.parse_lyrics(Path(data["lyrics"]).read_text(encoding="utf-8-sig"))
     return renderer.climax_segment(segments, data["audio"])
