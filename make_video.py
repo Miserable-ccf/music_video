@@ -233,13 +233,15 @@ def _smooth_field(rng, scale, sigma):
     return (a - a.mean()) / (a.std() + 1e-6)
 
 
-def make_bg():
+def make_bg(top=None, bottom=None):
     """垂直渐变底色 + 云雾式明暗 + 四角暗角 + 淡墨横晕；固定随机种子，CPU/GPU 底图一致。"""
+    top = top or BG_TOP
+    bottom = bottom or BG_BOTTOM
     grad = Image.new("RGB", (1, HEIGHT))
     px = grad.load()
     for y in range(HEIGHT):
         t = y / max(1, HEIGHT - 1)
-        px[0, y] = tuple(int(a + (b - a) * t) for a, b in zip(BG_TOP, BG_BOTTOM))
+        px[0, y] = tuple(int(a + (b - a) * t) for a, b in zip(top, bottom))
     base = np.asarray(grad.resize((WIDTH, HEIGHT)), dtype=np.float32)
 
     rng = np.random.default_rng(21)
@@ -257,9 +259,9 @@ def make_bg():
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
 
 
-def make_scene():
-    """统一模板：黑色渐变，不附加场景；CPU/GPU 使用同一底图。"""
-    return make_bg().convert("RGBA"), [], Image.new("RGBA", (WIDTH, HEIGHT))
+def make_scene(top=None, bottom=None):
+    """统一模板：渐变底色，不附加场景；CPU/GPU 使用同一底图。"""
+    return make_bg(top, bottom).convert("RGBA"), [], Image.new("RGBA", (WIDTH, HEIGHT))
 
 
 _PROBE = ImageDraw.Draw(Image.new("RGBA", (4, 4)))
@@ -453,7 +455,8 @@ def hex_to_rgb(value):
 def worker_init(title, segments, title_font_path, lyric_font_path,
                 title_size, lyric_size, title_max_w, lyric_max_w,
                 title_ink=None, lyric_ink=None, beats=None,
-                beat_win=BEAT_WIN_SEC, title_color=None, lyric_color=None):
+                beat_win=BEAT_WIN_SEC, title_color=None, lyric_color=None,
+                bg_top=None, bg_bottom=None):
     global _G_TITLE, _G_SEGMENTS, _G_TITLE_FONT, _G_LYRIC_FONT
     global _G_TITLE_MAX_W, _G_LYRIC_MAX_W, _G_BG
     global _G_TITLE_LAYER, _G_LYRIC_LAYERS, _G_TITLE_INK, _G_LYRIC_INK
@@ -465,7 +468,8 @@ def worker_init(title, segments, title_font_path, lyric_font_path,
     _G_LYRIC_FONT = load_font(lyric_font_path, lyric_size)
     _G_TITLE_MAX_W = title_max_w
     _G_LYRIC_MAX_W = lyric_max_w
-    _G_BG, _G_SCENE_LAYERS, _G_MIST = make_scene()
+    _G_BG, _G_SCENE_LAYERS, _G_MIST = make_scene(
+        hex_to_rgb(bg_top) if bg_top else None, hex_to_rgb(bg_bottom) if bg_bottom else None)
     _G_SCENE = _G_BG
     _G_TITLE_INK = title_ink or TITLE_INK
     _G_LYRIC_INK = lyric_ink or LYRIC_INK
@@ -645,6 +649,8 @@ def main():
     ap.add_argument("--lyric-size", type=int, default=0, help="歌词字号上限（1080p 基准）；0 为原有自动适配")
     ap.add_argument("--title-color", help="歌名颜色，#RRGGBB；缺省为模板灰色")
     ap.add_argument("--lyric-color", help="歌词颜色，#RRGGBB；缺省为模板暗红")
+    ap.add_argument("--bg-top", help="背景顶部颜色，#RRGGBB；缺省为模板深灰")
+    ap.add_argument("--bg-bottom", help="背景底部颜色，#RRGGBB；缺省为模板近黑")
     ap.add_argument("--ink", choices=["dry", "normal", "heavy"], default="normal",
                     help="泼墨强度：dry 更枯/多点，heavy 更润/更晕")
     ap.add_argument("--fade-sec", type=float, default=FADE_SEC,
@@ -742,7 +748,7 @@ def main():
     init = (title, segments, args.title_font, args.lyric_font,
             title_size, lyric_size, title_max_w, lyric_max_w,
             title_ink, lyric_ink, beats, args.beat_win,
-            args.title_color, args.lyric_color)
+            args.title_color, args.lyric_color, args.bg_top, args.bg_bottom)
 
     gpu = None
     if args.renderer == "gpu":

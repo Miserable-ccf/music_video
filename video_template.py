@@ -7,7 +7,9 @@ from font_catalog import FONT_FILES
 TEMPLATE_ID = "black-gradient-v1"
 DEFAULT_SETTINGS = {"title_font_id": "ma_shan_zheng", "lyric_font_id": "ma_shan_zheng",
                     "title_size": 0, "lyric_size": 0,
-                    "title_color": "#444444", "lyric_color": "#8e1212"}
+                    "title_color": "#444444", "lyric_color": "#8e1212",
+                    "bg_top": "#28282e", "bg_bottom": "#020204"}
+COLOR_KEYS = ("title_color", "lyric_color", "bg_top", "bg_bottom")
 COLOR_RE = re.compile(r"#[0-9a-fA-F]{6}")
 
 
@@ -25,7 +27,7 @@ def normalize_settings(value=None, previous=None):
         if isinstance(size, bool) or not isinstance(size, (int, float)) or not math.isfinite(size) or int(size) != size or not 0 <= size <= 1200:
             raise ValueError("字号必须为 0 到 1200 的整数；0 表示自动适配")
         result[key] = int(size)
-    for key in ("title_color", "lyric_color"):
+    for key in COLOR_KEYS:
         color = result[key]
         if not isinstance(color, str) or not COLOR_RE.fullmatch(color):
             raise ValueError("字体颜色必须为 #RRGGBB 格式")
@@ -37,7 +39,7 @@ def settings_from_design(design=None):
     design = design or {}
     legacy = design.get("font_id", DEFAULT_SETTINGS["lyric_font_id"])
     return normalize_settings({key: design.get(key, legacy if key.endswith("font_id")
-                                               else DEFAULT_SETTINGS[key] if key.endswith("color") else 0)
+                                               else DEFAULT_SETTINGS[key] if key in COLOR_KEYS else 0)
                                for key in DEFAULT_SETTINGS})
 
 

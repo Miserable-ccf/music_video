@@ -129,7 +129,7 @@ def command_template(args):
         raise SystemExit("停止：歌词尚未人工审核")
     previous = data.get("selected_design")
     updates = {key: getattr(args, key) for key in ("title_font_id", "lyric_font_id", "title_size", "lyric_size",
-                                                   "title_color", "lyric_color")
+                                                   "title_color", "lyric_color", "bg_top", "bg_bottom")
                if getattr(args, key, None) is not None}
     option = unified_design(data["title"], data["artist"], updates, previous)
     directory = job_path(args.job_id)
@@ -190,6 +190,7 @@ def render_command(data, output, audio_codec):
             "--title-size", str(settings["title_size"]),
             "--lyric-size", str(settings["lyric_size"]),
             "--title-color", settings["title_color"], "--lyric-color", settings["lyric_color"],
+            "--bg-top", settings["bg_top"], "--bg-bottom", settings["bg_bottom"],
             "--ink", design["ink"], "--fade-sec",
             "0" if design["transition"] == "cut" else str(design["fade_seconds"]),
             "--max-lyric-chars", str(design["max_lyric_chars"]),
@@ -377,6 +378,8 @@ def main():
     design.add_argument("--lyric-size", type=int)
     design.add_argument("--title-color")
     design.add_argument("--lyric-color")
+    design.add_argument("--bg-top")
+    design.add_argument("--bg-bottom")
     design.set_defaults(func=command_template)
     select = sub.add_parser("select-design")
     select.add_argument("job_id"); select.add_argument("option", choices=["a", "b", "c"])
