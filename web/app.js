@@ -28,6 +28,7 @@ function populateFonts(titleId=$('titleFont').value||defaults.title_font_id,lyri
   $('fontCount').textContent=`${fonts.length} 個本地字體選項 · ${matching} 個符合搜尋 · 字體及授權均已隨項目保存`;
 }
 function updateFontSamples(){for(const layer of ['title','lyric']){const font=fonts.find(f=>f.id===$(layer+'Font').value);if(!font)continue;const img=$(layer+'FontSample');img.src=`/api/fonts/${encodeURIComponent(font.id)}/sample?text=${encodeURIComponent(layer==='title'?($('title').value||'歌名書法').slice(0,80):'於是我們繼續，風起雲湧')}`;img.hidden=false;$(layer+'FontInfo').innerHTML=`${esc(font.category)} · <a href="/api/fonts/${encodeURIComponent(font.id)}/license" target="_blank" rel="noopener">${esc(font.license)}</a> · <a href="${esc(font.source)}" target="_blank" rel="noopener">作者來源 ↗</a>`;}}
+api('/api/version').then(v=>{$('buildInfo').textContent=`${v.commit}${v.dirty?'*':''} · ${v.branch} · pid ${v.pid} · ${v.started_at.replace('T',' ').slice(0,19)}`;}).catch(()=>{$('buildInfo').textContent='版本未知';});
 $('fontSearch').oninput=()=>populateFonts();
 for(const id of ['titleFont','lyricFont'])$(id).onchange=()=>{updateFontSamples();setDirty();};
 for(const id of ['titleSize','lyricSize','titleColor','lyricColor'])$(id).oninput=()=>setDirty();

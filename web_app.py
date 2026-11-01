@@ -6,9 +6,12 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import os
 import re
+import subprocess
 import threading
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 import uvicorn
@@ -70,6 +73,26 @@ def _prepare_lyrics(job_id):
 @app.get("/")
 def index():
     return FileResponse(WEB / "index.html")
+
+
+def _git(*args):
+    try:
+        return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, timeout=5).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+BUILD = {
+    "commit": _git("rev-parse", "--short", "HEAD") or "unknown",
+    "branch": _git("rev-parse", "--abbrev-ref", "HEAD") or "unknown",
+    "dirty": bool(_git("status", "--porcelain", "--untracked-files=no")),
+    "started_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+}
+
+
+@app.get("/api/version")
+def version():
+    return {"ok": True, **BUILD, "pid": os.getpid()}
 
 
 @app.get("/api/config")
